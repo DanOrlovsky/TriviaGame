@@ -8,7 +8,7 @@
 
 
 var missed = -255;                  // Const for a missed answer to be treated as an incorrect answer
-var questionTimer = 500;             // How long the player will have to answer a question.
+var maxTime = 30;             // How long the player will have to answer a question.
 var gameStarted = false;            // Flag the game has started
 var playAgain = false;              
 var game;                           // Game object
@@ -16,7 +16,7 @@ var timerInterval;                  // Interval function.
 var questionClose = "</a></p>";
 var imagePath = "./assets/images/";
 var bgPath = './assets/images/background-images/';
-
+var progressBarRef;
 var backgroundImages = [
     bgPath + '1.jpg',
     bgPath + '2.jpg',
@@ -69,16 +69,17 @@ function questionOpen(idx) {
 }
 
 function runTimer() {
-    $(gameObj.timerSelector).text(gameObj.timer);
-    if(--gameObj.timer < 0) {
+    progressBarRef.advanceProgressBar();
+    if(--gameObj.timer <= 0) {
         gameObj.questionsMissed++;
         clearInterval(timerInterval);
         gameObj.checkAnswer(missed);
     }
+    $(gameObj.timerSelector).text(gameObj.timer);
 }
 
 var  gameObj = {
-    timer: questionTimer,
+    timer: maxTime,
     questionsCorrect: 0,
     questionsIncorrect: 0,
     questionsMissed: 0,
@@ -107,11 +108,13 @@ var  gameObj = {
             this.showResults();
             return;
         }        
-        this.timer = questionTimer;
+        this.timer = maxTime;
         $(this.answersSelector).empty();
         
+        // Progress bar wrapper setup.
+        progressBarRef = new CenterProgressBar("#progress-bar-wrapper", "orange", 100 / maxTime);           
+        $(this.timerSelector).text(maxTime)
         timerInterval = setInterval(runTimer, 1000);
-        
         $(this.questionSelector).text(this.questions[this.currentQuestionIdx].question);
         
         var idx=0;
@@ -159,7 +162,7 @@ var  gameObj = {
         this.questionsIncorrect = 0;
         this.questionsMissed = 0;
         this.currentQuestionIdx = 0;
-        this.timer = questionTimer;
+        this.timer = maxTime;
         $(this.timerSelector).text(0);
         this.runQuestion();
     },
@@ -168,6 +171,7 @@ var  gameObj = {
 
 
 function initializeGame() {
+
     if(gameStarted === false) {
         gameStarted = true;
         clearInterval(blinkPressStartInterval);
@@ -198,6 +202,7 @@ function blinkText(selector) {
     })
 }
 $(document).ready(function () {
+
     
     backgroundInterval = setInterval(backgroundImageRotate, 10000);
     blinkPressStartInterval = setInterval(function() { blinkText('.pressStart')}, 1000);

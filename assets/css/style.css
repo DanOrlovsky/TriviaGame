@@ -15,9 +15,9 @@ a {
 	font-family: 'Courier New', Courier, monospace;
 	transition: all 200ms ease-in;
 }
-a:hover {
+a.answer-choice:hover {
 	text-decoration: none;
-	font-size: 12px;
+	font-size: 22px;
 }
 .row { width: 100vw;}
 .game-screen {
@@ -95,4 +95,18 @@ p {
 .winning-image {
 	width: 250px;
 	height: auto;
+}
+
+#progress-bar-wrapper {
+	margin: 0 auto;
+    height: 10px;
+    width: 500px;
+    
+    background-color: rgba(255, 255, 0, 1);
+    /*background: gray; /* For browsers that do not support gradients */
+    /* For Safari 5.1 to 6.0 */
+}
+
+#progress-wrapper {
+    box-shadow: 0 0 5px black;
 }
