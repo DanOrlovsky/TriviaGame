@@ -3,20 +3,29 @@
     09/17/2017
     Daniel Orlovsky
     UNCC Bootcamp - Aug 2017
+    This app uses the Centered Progress Bar control, found here:
+    https://danorlovsky.github.io/Center-Progress-Bar/
 */
 'use strict'
 
+// We have one function to check the users input and display the proper answer.  When the timer was running out, the program would increment
+// both the missed count and the incorrect count.  When the question is missed, we use this flag to skip over the answer-check.
+const missed = -255;                 
 
-var missed = -255;                  // Const for a missed answer to be treated as an incorrect answer
-var maxTime = 30;             // How long the player will have to answer a question.
-var gameStarted = false;            // Flag the game has started
-var playAgain = false;              
-var game;                           // Game object
-var timerInterval;                  // Interval function.
-var questionClose = "</a></p>";
-var imagePath = "./assets/images/";
-var bgPath = './assets/images/background-images/';
-var progressBarRef;
+
+const maxTime = 30;                         // How long the player will have to answer a question.
+var gameStarted = false;                    // Flag the game has started
+var game;                                   // Game object
+var timerInterval;                          // Interval function.
+var questionClose = "</a></p>";             // Closing HTML for a question.
+var imagePath = "./assets/images/";         // Path to images
+var progressBarRef;                         // Reference to our progress bar plugin
+
+/*
+    This game features background images that cycle like a slideshow, so here we create the array to store each image.
+    Read more: http://danorlovsky.tech/Articles/Cycling-Background-Images-in-jQuery
+*/
+var bgPath = './assets/images/background-images/';      
 var backgroundImages = [
     bgPath + '1.jpg',
     bgPath + '2.jpg',
@@ -25,14 +34,17 @@ var backgroundImages = [
     bgPath + '5.jpg',
 ];
 
+// Our question object
 function Question(question, answers, aboutAnswer, correctIndex, imgPath) {
-    this.question = question;
-    this.answers = answers;
-    this.aboutAnswer = aboutAnswer;
-    this.correctIndex = correctIndex;
-    this.imagePath = imgPath;
+    this.question = question;               // The question 
+    this.answers = answers;                 // An array of selectable answers
+    this.aboutAnswer = aboutAnswer;         // A blurb about the answer
+    this.correctIndex = correctIndex;       // The index of which answer is correct
+    this.imagePath = imgPath;               // Path of an image to display
 }
 
+
+////////// QUESTION SETUP //////////////////////////////////////////////////////////////////////////////
 var question1 = new Question("According to the episode title, what is a \"National Concern?\"", 
             [ 
                 "A Dead Guy", 
@@ -55,35 +67,74 @@ var question3 = new Question("Who is Charlie's main crush?",
                 "Gail",
                 "Dennis's Mom",
                 "The Waitress",   
-            ], "Early on in the season, we learn Charlie has a crush on the Waitress", 3, imagePath + "waitress.jpg");
+            ], "Right in the pilot episode, we learn Charlie has a crush on the Waitress", 3, imagePath + "waitress.jpg");
+var question4 = new Question("What was Charlie's Original business idea?",
+            [
+                "Bridge Painters",
+                "Bird Lawyer",
+                "Kitten Mittens",
+                "Pants for Chickens",
+            ], "In Season 5, Charlie has the idea to create and brand Kitten Mittens", 2, imagePath + "kitten-mittens.gif");
+var question5 = new Question("What was the name of Dee's \"Crazy\" Irish Character?", 
+            [
+                "Crazy Paddy",
+                "Crazy MacDonald",
+                "Crazy McPoyle",
+                "Miss Information"
+            ], "In Season 4, Dee attempts to become famous by creating different internet personalities", 0, imagePath + "crazy-paddy.gif");
+var question6 = new Question('"May I offer you a ________ during this trying time?"',
+            [
+                "Beer",
+                "French Fry",
+                "Soda",
+                "Egg",
+            ], "Frank Reynolds, more than once, offers people under bad circumstances an egg with using that phrase.", 3, imagePath + "egg-offering.gif");
+///// END QUESTION SETUP /////////////////////////////////////////////////////////////////////////////////
 
+// Build an array of questions
 var questionList = [
     question1,        
     question2,
     question3,
+    question4,
+    question5,
+    question6,
 ];
 
+
+// Utility function to return the opening HTML of a question.  Must pass the array index of the question.
+// Must pair with the const questionClose.
+// USAGE: questionOpen(i) + answer[i] + questionClose;
 function questionOpen(idx) {
     // idx will always begin at Zero (0), so we bump it up once.
     return '<p><a href="#" class="answer-choice" data-val="' + idx + '">' + (idx + 1) + ". ";
 }
 
+// This function advances our timer by 1.
 function runTimer() {
-    progressBarRef.advanceProgressBar();
+    progressBarRef.advanceProgressBar();            // Update the progress bar
+    // Subtract one from the timer and see if we've hit zero.
     if(--gameObj.timer <= 0) {
+        // Add one to missed questions
         gameObj.questionsMissed++;
+        // Stop the timer
         clearInterval(timerInterval);
+        // Check the answer, passing our missed flag
         gameObj.checkAnswer(missed);
     }
+    // Update the timer display.
     $(gameObj.timerSelector).text(gameObj.timer);
 }
 
 var  gameObj = {
-    timer: maxTime,
-    questionsCorrect: 0,
-    questionsIncorrect: 0,
-    questionsMissed: 0,
-    questions: questionList,
+    timer: maxTime,             // Timer placeholder
+    questionsCorrect: 0,        // Counter for questions correct
+    questionsIncorrect: 0,      // Counter for questions incorrect
+    questionsMissed: 0,         // Counter for questions missed
+    questions: questionList,    // Our list of questions
+    currentQuestionIdx: 0,      // The index of the current question
+    
+    /* UI ELEMENTS */
     screenSelector: ".game-screen",
     questionSelector: "#question-display",  
     timerSelector: "#timer-display",
@@ -92,8 +143,8 @@ var  gameObj = {
     guessedCorrectSelector: "#guessed-correct",
     guessedIncorrectSelector: "#guessed-incorrect",
     guessedMissedSelector: "#guessed-missed",
-    currentQuestionIdx: 0,
     
+    // Function to display the results of the game
     showResults: function() {
         $(this.resultsSelector).css({"display": "block", "z-index": "9999" });
         $(this.guessedCorrectSelector).html("<h2>Correct: " + this.questionsCorrect + "</h2>");
@@ -103,68 +154,86 @@ var  gameObj = {
         gameStarted = false;
     },
 
-    runQuestion: function() {
+    // Function to show the current question
+    nextQuestion: function() {
+        // Check if there are no more questions.  If not, showResults.
         if(this.currentQuestionIdx >= this.questions.length) {
             this.showResults();
             return;
         }        
+        // Reset the timer
         this.timer = maxTime;
+        // Clear out the answers Display
         $(this.answersSelector).empty();
         
-        // Progress bar wrapper setup.
-        progressBarRef = new CenterProgressBar("#progress-bar-wrapper", "orange", 100 / maxTime);           
+        // Initialize our progressBar
+        progressBarRef = new CenterProgressBar("#progress-bar-wrapper", "orange", 100 / maxTime);  
+
+        // Display the timer immediately
         $(this.timerSelector).text(maxTime)
+
+        // Set the timer-interval to run every second
         timerInterval = setInterval(runTimer, 1000);
+
+        // Display the current question
         $(this.questionSelector).text(this.questions[this.currentQuestionIdx].question);
         
+        // Set an index to display the answers
         var idx=0;
-        
+        // Loop through the answerss
         this.questions[this.currentQuestionIdx].answers.forEach(function(currentValue) {
-        
+            // Add the answer to the screen
             $(gameObj.answersSelector).append(questionOpen(idx) + currentValue + questionClose);
+            // Advance our index
             idx++;
 
         });        
 
     },
-    checkWin: function() {
-        alert("Game Over!");
-        gameStarted = false;
-    },
 
-
+    // Checks to see if the answer is correct or incorrect
     checkAnswer: function(answerIdx) {
+        // Stops our timer
         clearInterval(timerInterval);
+        // Clears our answer display area in our UI
         $(this.answersSelector).empty();    
+        // Make sure this wasn't a missed question
         if(answerIdx != missed) {
-            if(answerIdx == this.questions[this.currentQuestionIdx].correctIndex) {
+            // If the answer is correct
+            if(answerIdx === this.questions[this.currentQuestionIdx].correctIndex) {
                 console.log(answerIdx + " = " + this.questions[this.currentQuestionIdx].answerIdx);
                 this.questionsCorrect++;
                 $(this.answersSelector).append("<h1>Correct!</h1>")
-                
+            // Otherwise
             } else {
                 this.questionsIncorrect++;
                 $(this.answersSelector).append("<h1 class='text-red'>Incorrect</h1>")
             }
         }
+        // Display a blurb about the answer
         $(this.answersSelector).append("<p>" + this.questions[this.currentQuestionIdx].aboutAnswer + "</p>");
+        // Displays the image associated with the answer
         $(this.answersSelector).append('<img src="' + this.questions[this.currentQuestionIdx].imagePath + '" class="winning-image" />' );
+        // Moves the question up one
         this.currentQuestionIdx++;
+        // Times out for 5 seconds, and calls the next question
         window.setTimeout(function() { 
-            gameObj.runQuestion(); 
+            gameObj.nextQuestion(); 
         }, 6000);
     },
 
-
+    // Resets the game
     reset: function() {
+        // Makes sure the results window is hidden
         $(this.resultsSelector).css("display", "none");
+        // Reset all game variables
         this.questionsCorrect = 0;
         this.questionsIncorrect = 0;
         this.questionsMissed = 0;
         this.currentQuestionIdx = 0;
         this.timer = maxTime;
         $(this.timerSelector).text(0);
-        this.runQuestion();
+        this.nextQuestion();
     },
 }
 
@@ -183,9 +252,11 @@ function initializeGame() {
     }
 }
 
-var backgroundInterval;
-var blinkPressStartInterval;
-var imageIdx = 0;
+var backgroundInterval;         // Hold a reference to the interval of rotating background-images
+var blinkPressStartInterval;    // Hold a reference to the interval of the blinking start message
+var imageIdx = 0;               // Start from background image one.
+
+//  Moves to the next background image
 function backgroundImageRotate() {
     if(++imageIdx >= backgroundImages.length) {
         imageIdx = 0;
@@ -195,34 +266,40 @@ function backgroundImageRotate() {
     })
 }
 
-
+// Fades the opacity of text to 0 and then back to create a "blink" effect
 function blinkText(selector) {
     $(selector).animate({ opacity: 0}, 300, function() {
         $(selector).animate({ opacity: 1}, 300);
     })
 }
+
 $(document).ready(function () {
 
-    
+    // Initiate the interval for the background images    
     backgroundInterval = setInterval(backgroundImageRotate, 10000);
+
+    // Initiate the interval for blinking the press enter textg
     blinkPressStartInterval = setInterval(function() { blinkText('.pressStart')}, 1000);
+    
+    // If we clicked the start-to-play div run the initializeGame function
     $("#start-to-play").on("click", function() {
         initializeGame();
     });  
-    
-    $("#answers-display").on("click", ".answer-choice", function() {
-        console.log($(".answer-choice").data("val"));
-        gameObj.checkAnswer(parseInt($(this).data('val')));
-    });
-    $("#results-display").on("click", function() {
-        initializeGame();
-    })
+    // OR, if we press enter on the screen try the initializeGame function.
     $(document).keypress(function (event) {
         
-        // Enter key pressed
         if (event.keyCode === 13) {
             initializeGame();
         }
     });
+    // When the user clicks on an answer, we grab the data-val attribute and turn it into an integer, and pass it to the
+    // checkAnswer function
+    $("#answers-display").on("click", ".answer-choice", function() {
+        gameObj.checkAnswer(parseInt($(this).data('val')));
+    });
+    // If they click on the Results Display div, try and initialize the game. 
+    $("#results-display").on("click", function() {
+        initializeGame();
+    })
 
 });
